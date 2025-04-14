@@ -1,0 +1,28 @@
+# Binaries
+/bin/
+/build/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Vendor
+/vendor/
+
+# Go Build
+*.test
+*.out
+
+# IDE / Editor settings
+.idea/
+.vscode/
+*.swp
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
