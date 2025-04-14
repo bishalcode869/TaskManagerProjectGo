@@ -25,6 +25,7 @@ func main() {
 	})
 
 	routes.SetupUserRoutes(router, app.UserController)
+	routes.SetupAuthRoutes(router, app.AuthController)
 
 	log.Println("Server is running at http://localhost:8080")
 	if err := router.Run(":8080"); err != nil {
