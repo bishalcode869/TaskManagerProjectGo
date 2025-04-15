@@ -23,7 +23,10 @@ var Config *AppConfig
 func LoadConfig() {
 	// Load .env file
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found. Using system envs.")
+		// Try loading from parent dir if not found in current dir
+		if err := godotenv.Load("../../.env"); err != nil {
+			log.Println("⚠️  No .env file found. Using system envs.")
+		}
 	}
 
 	// Check and load environment variables

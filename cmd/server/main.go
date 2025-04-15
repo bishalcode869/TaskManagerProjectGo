@@ -24,8 +24,8 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"message": "Hello, it is working"})
 	})
 
-	routes.SetupUserRoutes(router, app.UserController)
-	routes.SetupAuthRoutes(router, app.AuthController)
+	routes.SetupUserRoutes(router, app.Controller.User)
+	routes.SetupAuthRoutes(router, app.Controller.Auth)
 
 	log.Println("Server is running at http://localhost:8080")
 	if err := router.Run(":8080"); err != nil {
