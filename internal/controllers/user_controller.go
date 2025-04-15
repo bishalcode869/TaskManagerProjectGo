@@ -8,17 +8,20 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 )
 
 // UserController handles HTTP requests related to user operations
 type UserController struct {
 	UserService services.UserService
+	Validator   *validator.Validate
 }
 
 // NewUserController creates and returns a new UserController instance
 func NewUserController(userService services.UserService) *UserController {
 	return &UserController{
 		UserService: userService,
+		Validator:   validator.New(),
 	}
 }
 
@@ -28,6 +31,11 @@ func (u *UserController) CreateUser(c *gin.Context) {
 	if err := c.ShouldBindJSON(&user); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+
+	// Input validation using validator
+	if err := u.Validator.Struct(&user); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	}
 
 	newUser, err := u.UserService.CreateUser(&user)
@@ -77,6 +85,12 @@ func (u *UserController) UpdateUser(c *gin.Context) {
 
 	var user models.User
 	if err := c.ShouldBindJSON(&user); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Input validation using validator
+	if err := u.Validator.Struct(&user); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

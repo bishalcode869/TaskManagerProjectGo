@@ -8,17 +8,20 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 )
 
 // AuthController handles authentication-related HTTP requests
 type AuthController struct {
 	AuthService services.AuthService
+	Validator   *validator.Validate
 }
 
 // NewAuthController creates and returns a new AuthController instance
 func NewAuthController(authService services.AuthService) *AuthController {
 	return &AuthController{
 		AuthService: authService,
+		Validator:   validator.New(),
 	}
 }
 
@@ -34,6 +37,11 @@ func (a *AuthController) Register(c *gin.Context) {
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
+	}
+
+	// Validate input using the validator
+	if err := a.Validator.Struct(input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	}
 
 	// Check if username already exists using AuthService
@@ -71,22 +79,13 @@ func (a *AuthController) Register(c *gin.Context) {
 		return
 	}
 
-	// Set token expiration (default 24 hours, configurable via query parameter)
-	expirationTime := time.Hour * 24
-	if expTimeStr := c.DefaultQuery("JWT_EXPIRATION_HOURS", "24"); expTimeStr != "" {
-		if expTime, err := time.ParseDuration(expTimeStr + "h"); err == nil {
-			expirationTime = expTime
-		}
-	}
-
-	// Generate JWT token using the created user's ID and the expiration time
-	token, err := utils.GenerateJWT(createdUser.ID, expirationTime)
+	// Generate JWT token
+	token, err := utils.GenerateJWT(createdUser.ID, time.Hour*24)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
 
-	// Return the JWT token in the response
 	c.JSON(http.StatusOK, gin.H{
 		"message": "User registered successfully",
 		"token":   token,
@@ -104,6 +103,12 @@ func (a *AuthController) Login(c *gin.Context) {
 	// Bind JSON data to input struct
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	// Validate input using the validator
+	if err := a.Validator.Struct(input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -127,14 +132,13 @@ func (a *AuthController) Login(c *gin.Context) {
 		return
 	}
 
-	// Generate JWT token with default 24-hour expiry
+	// Generate JWT token
 	token, err := utils.GenerateJWT(user.ID, time.Hour*24)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
 
-	// Return the JWT token
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Login successful",
 		"token":   token,
