@@ -96,7 +96,8 @@ func (a *AuthController) Register(c *gin.Context) {
 // Login authenticates a user and returns a JWT token
 func (a *AuthController) Login(c *gin.Context) {
 	var input struct {
-		Username string `json:"username" binding:"required"`
+		Username string `json:"username"`
+		Email    string `json:"email"`
 		Password string `json:"password" binding:"required"`
 	}
 
@@ -106,16 +107,23 @@ func (a *AuthController) Login(c *gin.Context) {
 		return
 	}
 
-	// Use AuthService to retrieve the user by username
-	user, err := a.AuthService.GetUserByUsername(input.Username)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
+	// Try to find user by username or email
+	var user *models.User
+	var err error
+	if input.Email != "" {
+		user, err = a.AuthService.GetUserByEmail(input.Email)
+	} else if input.Username != "" {
+		user, err = a.AuthService.GetUserByUsername(input.Username)
+	}
+
+	if err != nil || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username/email or password"})
 		return
 	}
 
 	// Compare stored hashed password with provided password
 	if err := utils.ComparePasswords(user.Password, input.Password); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username/email or password"})
 		return
 	}
 
