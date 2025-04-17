@@ -3,6 +3,7 @@ package repositories
 
 import (
 	"TaskManager/internal/models"
+	"fmt"
 	"log"
 
 	"gorm.io/gorm"
@@ -91,9 +92,9 @@ func (repo *UserRepositoryImpl) UpdateUser(user *models.User) (*models.User, err
 
 // DeleteUser deletes a user by their ID
 func (repo *UserRepositoryImpl) DeleteUser(id uint) error {
-	if err := repo.DB.Delete(&models.User{}, id).Error; err != nil {
-		log.Println("Error deleting user:", err)
-		return err
+	var user models.User
+	if err := repo.DB.First(&user, id).Error; err != nil {
+		return fmt.Errorf("user not found")
 	}
-	return nil
+	return repo.DB.Delete(&user).Error
 }

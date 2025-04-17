@@ -1,18 +1,21 @@
 package services
 
 import (
-	"TaskManager/internal/models"
-	"TaskManager/internal/repositories"
-	"TaskManager/pkg/utils"
 	"errors"
 	"fmt"
 	"time"
+
+	"TaskManager/internal/models"
+	"TaskManager/internal/repositories"
+	"TaskManager/pkg/utils"
+
+	"gorm.io/gorm"
 )
 
 // AuthService interface defines the methods for authentication-related operations
 type AuthService interface {
-	LoginUser(username, email, password string) (*models.User, string, error)
 	RegisterUser(username, password, email string) (*models.User, string, error)
+	LoginUser(username, email, password string) (*models.User, string, error)
 }
 
 // AuthServiceImpl is the concrete implementation of the AuthService interface
@@ -27,63 +30,69 @@ func NewAuthService(authRepo repositories.UserRepository) AuthService {
 	}
 }
 
-// Helper function to check if a user exists by either username or email
-func (s *AuthServiceImpl) userExists(username, email string) (*models.User, error) {
+// userExists checks if a user exists by username or email (internal helper)
+func (s *AuthServiceImpl) userExists(username, email string) error {
 	if username != "" {
 		user, err := s.AuthRepo.GetUserByUsername(username)
-		if err == nil && user != nil {
-			return nil, fmt.Errorf("Username already taken")
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("error checking username: %v", err)
+		}
+		if user != nil {
+			return errors.New("username already taken")
 		}
 	}
 	if email != "" {
 		user, err := s.AuthRepo.GetUserByEmail(email)
-		if err == nil && user != nil {
-			return nil, fmt.Errorf("Email already registered")
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("error checking email: %v", err)
+		}
+		if user != nil {
+			return errors.New("email already registered")
 		}
 	}
-	return nil, nil
+	return nil
 }
 
 // RegisterUser registers a new user, hashes their password, and returns a JWT token
 func (s *AuthServiceImpl) RegisterUser(username, password, email string) (*models.User, string, error) {
-	// Check if username or email already exists
-	if _, err := s.userExists(username, email); err != nil {
+	// ensure username/email are not already in use
+	if err := s.userExists(username, email); err != nil {
 		return nil, "", err
 	}
 
-	// Hash password
+	// hash password
 	hashedPassword, err := utils.HashPassword(password)
 	if err != nil {
-		return nil, "", errors.New("Failed to hash password")
+		return nil, "", errors.New("failed to hash password")
 	}
 
-	// Create user
+	// create and persist user
 	user := &models.User{
 		Username: username,
 		Email:    email,
 		Password: hashedPassword,
 	}
-
-	// Save user to DB
 	createdUser, err := s.AuthRepo.CreateUser(user)
 	if err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("failed to create user: %v", err)
 	}
 
-	// Generate JWT token
+	// generate token
 	token, err := utils.GenerateJWT(createdUser.ID, time.Hour*24)
 	if err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("failed to generate token: %v", err)
 	}
-
 	return createdUser, token, nil
 }
 
 // LoginUser authenticates a user and returns a JWT token
 func (s *AuthServiceImpl) LoginUser(username, email, password string) (*models.User, string, error) {
-	var user *models.User
-	var err error
+	var (
+		user *models.User
+		err  error
+	)
 
+	// lookup by email or username
 	if email != "" {
 		user, err = s.AuthRepo.GetUserByEmail(email)
 	} else if username != "" {
@@ -91,18 +100,18 @@ func (s *AuthServiceImpl) LoginUser(username, email, password string) (*models.U
 	}
 
 	if err != nil || user == nil {
-		return nil, "", fmt.Errorf("Invalid username/email or password")
+		return nil, "", errors.New("invalid username/email or password")
 	}
 
-	// Compare hashed password
+	// verify password
 	if err := utils.ComparePasswords(user.Password, password); err != nil {
-		return nil, "", fmt.Errorf("Invalid username/email or password")
+		return nil, "", errors.New("invalid username/email or password")
 	}
 
-	// Generate JWT token
+	// generate token
 	token, err := utils.GenerateJWT(user.ID, time.Hour*24)
 	if err != nil {
-		return nil, "", fmt.Errorf("Failed to generate token")
+		return nil, "", fmt.Errorf("failed to generate token: %v", err)
 	}
 	return user, token, nil
 }

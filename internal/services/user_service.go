@@ -6,7 +6,10 @@ import (
 	"TaskManager/internal/repositories"
 	"TaskManager/pkg/utils"
 	"errors"
+	"fmt"
 	"log"
+
+	"gorm.io/gorm"
 )
 
 // UserService interface defines the methods for user-related business operations
@@ -37,9 +40,16 @@ func (s *UserServiceImpl) CreateUser(user *models.User) (*models.User, error) {
 	// Validate email and username uniqueness
 	if _, err := s.UserRepo.GetUserByEmail(user.Email); err == nil {
 		return nil, errors.New("email already taken")
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Println("Error checking email:", err)
+		return nil, fmt.Errorf("unexpected error checking email: %v", err)
 	}
+
 	if _, err := s.UserRepo.GetUserByUsername(user.Username); err == nil {
 		return nil, errors.New("username already taken")
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Println("Error checking username:", err)
+		return nil, fmt.Errorf("unexpected error checking username: %v", err)
 	}
 
 	// Hash the password before saving
@@ -51,7 +61,6 @@ func (s *UserServiceImpl) CreateUser(user *models.User) (*models.User, error) {
 	user.Password = hashedPassword
 
 	return s.UserRepo.CreateUser(user)
-
 }
 
 // GetUserByID retrieves a user by their ID by calling the repository's GetUserByID method
