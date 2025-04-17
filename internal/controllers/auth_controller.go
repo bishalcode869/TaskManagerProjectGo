@@ -1,11 +1,8 @@
 package controllers
 
 import (
-	"TaskManager/internal/models"
 	"TaskManager/internal/services"
-	"TaskManager/pkg/utils"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -36,51 +33,17 @@ func (a *AuthController) Register(c *gin.Context) {
 		return
 	}
 
-	// Check if username already exists using AuthService
-	existingUser, err := a.AuthService.GetUserByUsername(input.Username)
-	if err == nil && existingUser != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "Username already taken"})
-		return
-	}
-
-	// Check if email already exists using AuthService
-	existingUserByEmail, err := a.AuthService.GetUserByEmail(input.Email)
-	if err == nil && existingUserByEmail != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "Email already registered"})
-		return
-	}
-
-	// Hash password using the utility function
-	hashedPassword, err := utils.HashPassword(input.Password)
+	// Call the service layer to register the user
+	createdUser, token, err := a.AuthService.RegisterUser(input.Username, input.Password, input.Email)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
-		return
-	}
-
-	// Create a new user model instance (password will be hashed)
-	user := &models.User{
-		Username: input.Username,
-		Email:    input.Email,
-		Password: hashedPassword,
-	}
-
-	// Use AuthService to create the user
-	createdUser, err := a.AuthService.CreateUser(user)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
-		return
-	}
-
-	// Generate JWT token
-	token, err := utils.GenerateJWT(createdUser.ID, time.Hour*24)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "User registered successfully",
 		"token":   token,
+		"user":    createdUser,
 	})
 }
 
@@ -98,35 +61,16 @@ func (a *AuthController) Login(c *gin.Context) {
 		return
 	}
 
-	// Try to find user by username or email
-	var user *models.User
-	var err error
-	if input.Email != "" {
-		user, err = a.AuthService.GetUserByEmail(input.Email)
-	} else if input.Username != "" {
-		user, err = a.AuthService.GetUserByUsername(input.Username)
-	}
-
-	if err != nil || user == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username/email or password"})
-		return
-	}
-
-	// Compare stored hashed password with provided password
-	if err := utils.ComparePasswords(user.Password, input.Password); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username/email or password"})
-		return
-	}
-
-	// Generate JWT token
-	token, err := utils.GenerateJWT(user.ID, time.Hour*24)
+	// Authenticate the user using the service layer
+	user, token, err := a.AuthService.LoginUser(input.Username, input.Email, input.Password)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username/email or"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Login successful",
-		"token":   token,
+		"username": user.Username,
+		"message":  "Login successful",
+		"token":    token,
 	})
 }
