@@ -29,7 +29,6 @@ func LoadConfig() {
 		}
 	}
 
-	// Check and load environment variables
 	Config = &AppConfig{
 		DBHost:     mustGetEnvOrDefault("DB_HOST", "localhost"),
 		DBUser:     mustGetEnvOrDefault("DB_USER", "postgres"),
@@ -38,9 +37,11 @@ func LoadConfig() {
 		DBPort:     mustGetEnvOrDefault("DB_PORT", "5432"),
 		JWTSecret:  mustGetEnvOrDefault("JWT_SECRET", "mySuperSecretKey"),
 	}
+
+	log.Println("✅ Configuration loaded successfully.")
 }
 
-// Add a helper function for default values
+// mustGetEnvOrDefault returns env var or a default value
 func mustGetEnvOrDefault(key, defaultValue string) string {
 	value := os.Getenv(key)
 	if value == "" {

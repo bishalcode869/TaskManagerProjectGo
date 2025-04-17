@@ -4,6 +4,9 @@ package services
 import (
 	"TaskManager/internal/models"
 	"TaskManager/internal/repositories"
+	"TaskManager/pkg/utils"
+	"errors"
+	"log"
 )
 
 // UserService interface defines the methods for user-related business operations
@@ -31,7 +34,24 @@ func NewUserService(userRepo repositories.UserRepository) UserService {
 
 // CreateUser adds a new user by calling the repository's CreateUser method
 func (s *UserServiceImpl) CreateUser(user *models.User) (*models.User, error) {
+	// Validate email and username uniqueness
+	if _, err := s.UserRepo.GetUserByEmail(user.Email); err == nil {
+		return nil, errors.New("email already taken")
+	}
+	if _, err := s.UserRepo.GetUserByUsername(user.Username); err == nil {
+		return nil, errors.New("username already taken")
+	}
+
+	// Hash the password before saving
+	hashedPassword, err := utils.HashPassword(user.Password)
+	if err != nil {
+		log.Println("Error hashing password:", err)
+		return nil, err
+	}
+	user.Password = hashedPassword
+
 	return s.UserRepo.CreateUser(user)
+
 }
 
 // GetUserByID retrieves a user by their ID by calling the repository's GetUserByID method

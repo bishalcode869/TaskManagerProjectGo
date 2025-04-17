@@ -8,20 +8,17 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 )
 
 // AuthController handles authentication-related HTTP requests
 type AuthController struct {
 	AuthService services.AuthService
-	Validator   *validator.Validate
 }
 
 // NewAuthController creates and returns a new AuthController instance
 func NewAuthController(authService services.AuthService) *AuthController {
 	return &AuthController{
 		AuthService: authService,
-		Validator:   validator.New(),
 	}
 }
 
@@ -37,11 +34,6 @@ func (a *AuthController) Register(c *gin.Context) {
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
-	}
-
-	// Validate input using the validator
-	if err := a.Validator.Struct(input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	}
 
 	// Check if username already exists using AuthService
@@ -103,12 +95,6 @@ func (a *AuthController) Login(c *gin.Context) {
 	// Bind JSON data to input struct
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
-		return
-	}
-
-	// Validate input using the validator
-	if err := a.Validator.Struct(input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 

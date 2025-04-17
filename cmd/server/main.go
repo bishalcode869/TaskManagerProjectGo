@@ -12,16 +12,21 @@ import (
 
 func main() {
 
+	// Initialize application (config, DB, controllers, etc.)
 	app, err := bootstrap.InitializeApp()
 	if err != nil {
 		log.Fatal("❌ App initialization failed:", err)
 	}
 
+	// Initalize Gin router
 	router := gin.Default()
+
+	// Global middleware
 	router.Use(middleware.Errorhandler())
 
+	// Health check or welcome route
 	router.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "Hello, it is working"})
+		c.JSON(http.StatusOK, gin.H{"message": "🚀 Hello, TaskManager API is working!"})
 	})
 
 	routes.SetupUserRoutes(router, app.Controller.User)

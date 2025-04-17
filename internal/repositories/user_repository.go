@@ -3,6 +3,7 @@ package repositories
 
 import (
 	"TaskManager/internal/models"
+	"log"
 
 	"gorm.io/gorm"
 )
@@ -33,6 +34,7 @@ func NewUserRepository(db *gorm.DB) UserRepository {
 // CreateUser adds a new user to the database
 func (repo *UserRepositoryImpl) CreateUser(user *models.User) (*models.User, error) {
 	if err := repo.DB.Create(user).Error; err != nil {
+		log.Println("Error creating user:", err)
 		return nil, err
 	}
 	return user, nil
@@ -42,6 +44,7 @@ func (repo *UserRepositoryImpl) CreateUser(user *models.User) (*models.User, err
 func (repo *UserRepositoryImpl) GetUserByID(id uint) (*models.User, error) {
 	var user models.User
 	if err := repo.DB.First(&user, id).Error; err != nil {
+		log.Println("Error fetching user by ID:", err)
 		return nil, err
 	}
 	return &user, nil
@@ -51,6 +54,7 @@ func (repo *UserRepositoryImpl) GetUserByID(id uint) (*models.User, error) {
 func (repo *UserRepositoryImpl) GetUserByEmail(email string) (*models.User, error) {
 	var user models.User
 	if err := repo.DB.Where("email = ?", email).First(&user).Error; err != nil {
+		log.Println("Error fetching user by email", err)
 		return nil, err
 	}
 	return &user, nil
@@ -60,6 +64,7 @@ func (repo *UserRepositoryImpl) GetUserByEmail(email string) (*models.User, erro
 func (repo *UserRepositoryImpl) GetUserByUsername(username string) (*models.User, error) {
 	var user models.User
 	if err := repo.DB.Where("username = ?", username).First(&user).Error; err != nil {
+		log.Println("Error fetching user by username:", err)
 		return nil, err
 	}
 	return &user, nil
@@ -69,6 +74,7 @@ func (repo *UserRepositoryImpl) GetUserByUsername(username string) (*models.User
 func (repo *UserRepositoryImpl) GetAllUsers() ([]models.User, error) {
 	var users []models.User
 	if err := repo.DB.Find(&users).Error; err != nil {
+		log.Println("Error fetching all users:", err)
 		return nil, err
 	}
 	return users, nil
@@ -77,6 +83,7 @@ func (repo *UserRepositoryImpl) GetAllUsers() ([]models.User, error) {
 // UpdateUser updates an existing user's information
 func (repo *UserRepositoryImpl) UpdateUser(user *models.User) (*models.User, error) {
 	if err := repo.DB.Save(user).Error; err != nil {
+		log.Println("Error updating user:", err)
 		return nil, err
 	}
 	return user, nil
@@ -85,6 +92,7 @@ func (repo *UserRepositoryImpl) UpdateUser(user *models.User) (*models.User, err
 // DeleteUser deletes a user by their ID
 func (repo *UserRepositoryImpl) DeleteUser(id uint) error {
 	if err := repo.DB.Delete(&models.User{}, id).Error; err != nil {
+		log.Println("Error deleting user:", err)
 		return err
 	}
 	return nil

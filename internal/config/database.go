@@ -23,8 +23,8 @@ func NewDBService() DBService {
 
 // Connect opens a connection to the PostGreSQL database
 func (p *PostgresDB) Connect() (*gorm.DB, error) {
+	// Construct the Data Source Name (DSN) string
 	dsn := fmt.Sprintf(
-
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
 		Config.DBHost,
 		Config.DBUser,
@@ -33,11 +33,17 @@ func (p *PostgresDB) Connect() (*gorm.DB, error) {
 		Config.DBPort,
 	)
 
+	// Log the DSN (for debugging purposes only, remove in production)
+	log.Println("Database DSN:", dsn)
+
+	// Try connecting to the database
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
+		log.Println("❌ Failed to connect to PostgreSQL:", err)
 		return nil, err
 	}
 
+	// Log successful connection
 	log.Println("✅ Successfully connected to PostgreSQL database.")
 	return db, nil
 }
