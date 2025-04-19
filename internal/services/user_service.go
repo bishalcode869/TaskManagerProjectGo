@@ -26,12 +26,14 @@ type UserService interface {
 // UserServiceImpl is the concrete implementation of the UserService interface
 type UserServiceImpl struct {
 	UserRepo repositories.UserRepository
+	HashFunc func(string) (string, error)
 }
 
 // NewUserService creates and returns a new UserService instance
 func NewUserService(userRepo repositories.UserRepository) UserService {
 	return &UserServiceImpl{
 		UserRepo: userRepo,
+		HashFunc: utils.HashPassword,
 	}
 }
 
@@ -53,7 +55,7 @@ func (s *UserServiceImpl) CreateUser(user *models.User) (*models.User, error) {
 	}
 
 	// Hash the password before saving
-	hashedPassword, err := utils.HashPassword(user.Password)
+	hashedPassword, err := s.HashFunc(user.Password)
 	if err != nil {
 		log.Println("Error hashing password:", err)
 		return nil, err

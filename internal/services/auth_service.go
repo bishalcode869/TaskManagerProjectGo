@@ -20,13 +20,21 @@ type AuthService interface {
 
 // AuthServiceImpl is the concrete implementation of the AuthService interface
 type AuthServiceImpl struct {
-	AuthRepo repositories.UserRepository
+	AuthRepo        repositories.UserRepository
+	HashPassword    func(string) (string, error)
+	ComparePassword func(string, string) error
+	GenerateJWT     func(uint, time.Duration) (string, error)
+	TokenTTL        time.Duration
 }
 
 // NewAuthService creates and returns a new AuthService instance
 func NewAuthService(authRepo repositories.UserRepository) AuthService {
 	return &AuthServiceImpl{
-		AuthRepo: authRepo,
+		AuthRepo:        authRepo,
+		HashPassword:    utils.HashPassword,
+		ComparePassword: utils.ComparePasswords,
+		GenerateJWT:     utils.GenerateJWT,
+		TokenTTL:        24 * time.Hour,
 	}
 }
 
@@ -61,7 +69,7 @@ func (s *AuthServiceImpl) RegisterUser(username, password, email string) (*model
 	}
 
 	// hash password
-	hashedPassword, err := utils.HashPassword(password)
+	hashedPassword, err := s.HashPassword(password)
 	if err != nil {
 		return nil, "", errors.New("failed to hash password")
 	}
@@ -78,7 +86,8 @@ func (s *AuthServiceImpl) RegisterUser(username, password, email string) (*model
 	}
 
 	// generate token
-	token, err := utils.GenerateJWT(createdUser.ID, time.Hour*24)
+
+	token, err := s.GenerateJWT(createdUser.ID, s.TokenTTL)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to generate token: %v", err)
 	}
@@ -104,12 +113,12 @@ func (s *AuthServiceImpl) LoginUser(username, email, password string) (*models.U
 	}
 
 	// verify password
-	if err := utils.ComparePasswords(user.Password, password); err != nil {
+	if err := s.ComparePassword(user.Password, password); err != nil {
 		return nil, "", errors.New("invalid username/email or password")
 	}
 
 	// generate token
-	token, err := utils.GenerateJWT(user.ID, time.Hour*24)
+	token, err := s.GenerateJWT(user.ID, s.TokenTTL)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to generate token: %v", err)
 	}

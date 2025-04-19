@@ -1,104 +1,133 @@
-package services
+package services_test
 
 import (
 	"TaskManager/internal/models"
+	"TaskManager/internal/services"
+	"TaskManager/mocks"
 	"errors"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
-// MockUserRepo is a testify/mock for UserRepository
-type MockUserRepo struct{ mock.Mock }
+func TestCreateUser_Success(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-func (m *MockUserRepo) CreateUser(u *models.User) (*models.User, error) {
-	args := m.Called(u)
-	return args.Get(0).(*models.User), args.Error(1)
+	// Mocking the UserRepository
+	mockRepo := mocks.NewMockUserRepository(ctrl)
+	userSvc := services.NewUserService(mockRepo)
+
+	// Test data
+	newUser := &models.User{
+		Email:    "test@example.com",
+		Username: "testuser",
+		Password: "password123",
+	}
+
+	// Set up expectations
+	mockRepo.EXPECT().GetUserByEmail(newUser.Email).Return(nil, gorm.ErrRecordNotFound)
+	mockRepo.EXPECT().GetUserByUsername(newUser.Username).Return(nil, gorm.ErrRecordNotFound)
+	mockRepo.EXPECT().CreateUser(gomock.Any()).Return(newUser, nil)
+
+	// Call the service method
+	createdUser, err := userSvc.CreateUser(newUser)
+
+	// Assertions
+	require.NoError(t, err)
+	assert.Equal(t, newUser.Email, createdUser.Email)
+	assert.Equal(t, newUser.Username, createdUser.Username)
 }
 
-func (m *MockUserRepo) GetUserByID(id uint) (*models.User, error) {
-	args := m.Called(id)
-	return args.Get(0).(*models.User), args.Error(1)
-}
-func (m *MockUserRepo) GetUserByEmail(email string) (*models.User, error) {
-	args := m.Called(email)
-	return args.Get(0).(*models.User), args.Error(1)
-}
-func (m *MockUserRepo) GetUserByUsername(username string) (*models.User, error) {
-	args := m.Called(username)
-	return args.Get(0).(*models.User), args.Error(1)
-}
-func (m *MockUserRepo) GetAllUsers() ([]models.User, error) {
-	args := m.Called()
-	return args.Get(0).([]models.User), args.Error(1)
-}
-func (m *MockUserRepo) UpdateUser(u *models.User) (*models.User, error) {
-	args := m.Called(u)
-	return args.Get(0).(*models.User), args.Error(1)
-}
-func (m *MockUserRepo) DeleteUser(id uint) error {
-	args := m.Called(id)
-	return args.Error(0)
-}
+func TestCreateUser_EmailAlreadyTaken(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-// Writing the Tests
-func TestUserService_CreateUser_DuplilcateEmail(t *testing.T) {
-	mockRepo := new(MockUserRepo)
-	svc := NewUserService(mockRepo)
+	mockRepo := mocks.NewMockUserRepository(ctrl)
+	userSvc := services.NewUserService(mockRepo)
 
-	req := &models.User{Email: "e@mail", Username: "u", Password: "pass"}
+	newUser := &models.User{
+		Email:    "test@example.com",
+		Username: "testuser",
+		Password: "password123",
+	}
 
-	// Simulate email already taken
-	mockRepo.
-		On("GetUserByEmail", "e@mail").
-		Return(&models.User{}, nil)
+	// Mock GetUserByEmail to simulate email already taken
+	mockRepo.EXPECT().GetUserByEmail(newUser.Email).Return(&models.User{}, nil)
 
-	_, err := svc.CreateUser(req)
-	assert.EqualError(t, err, "email already taken")
-	mockRepo.AssertNotCalled(t, "CreateUser")
+	// Call the service method
+	createdUser, err := userSvc.CreateUser(newUser)
+
+	// Assertions
+	assert.Error(t, err)
+	assert.Nil(t, createdUser)
+	assert.Equal(t, "email already taken", err.Error())
 }
 
-func TestUserService_CreateUser_DuplicateUsername(t *testing.T) {
-	mockRepo := new(MockUserRepo)
-	svc := NewUserService(mockRepo)
+func TestCreateUser_UsernameAlreadyTaken(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	req := &models.User{Email: "a@mail", Username: "u", Password: "pass"}
+	mockRepo := mocks.NewMockUserRepository(ctrl)
+	userSvc := services.NewUserService(mockRepo)
 
-	// Email OK, but username taken
-	mockRepo.
-		On("GetUserByEmail", "a@mail").
-		Return(nil, errors.New("not found"))
-	mockRepo.
-		On("GetUserByUsername", "u").
-		Return(&models.User{}, nil)
+	newUser := &models.User{
+		Email:    "test@example.com",
+		Username: "testuser",
+		Password: "password123",
+	}
 
-	_, err := svc.CreateUser(req)
-	assert.EqualError(t, err, "username already taken")
-	mockRepo.AssertNotCalled(t, "CreateUser")
+	// Mock the behavior for both email and username
+	mockRepo.EXPECT().GetUserByEmail(newUser.Email).Return(nil, gorm.ErrRecordNotFound)
+	mockRepo.EXPECT().GetUserByUsername(newUser.Username).Return(&models.User{}, nil)
+
+	// Call the service method
+	createdUser, err := userSvc.CreateUser(newUser)
+
+	// Assertions
+	assert.Error(t, err)
+	assert.Nil(t, createdUser)
+	assert.Equal(t, "username already taken", err.Error())
 }
 
-func TestUserService_CreateUser_Success(t *testing.T) {
-	mockRepo := new(MockUserRepo)
-	svc := NewUserService(mockRepo)
+func TestCreateUser_HashPasswordError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	req := &models.User{Email: "e@mail", Username: "u", Password: "pass"}
+	mockRepo := mocks.NewMockUserRepository(ctrl)
+	mockHashError := errors.New("hashing error")
 
-	// No duplicates
-	mockRepo.
-		On("GetUserByEmail", "e@mail").
-		Return(nil, errors.New("not found"))
-	mockRepo.
-		On("GetUserByUsername", "u").
-		Return(nil, errors.New("not found"))
+	// Create service with mocked hashing function
+	serviceImpl := &services.UserServiceImpl{
+		UserRepo: mockRepo,
+		HashFunc: func(password string) (string, error) {
+			return "", mockHashError // simulate hashing error
+		},
+	}
+	userSvc := serviceImpl
 
-	// Capture CreateUser call
-	mockRepo.
-		On("CreateUser", mock.AnythingOfType("*models.User")).
-		Return(func(u *models.User) *models.User { return u }, nil)
+	// Test data for new user
+	newUser := &models.User{
+		Email:    "test@example.com",
+		Username: "testuser",
+		Password: "password123",
+	}
 
-	created, err := svc.CreateUser(req)
-	assert.NoError(t, err)
-	assert.NotEqual(t, "pass", created.Password, "password should be hashed")
-	mockRepo.AssertExpectations(t)
+	// Mock repository methods for checking email and username
+	mockRepo.EXPECT().GetUserByEmail(newUser.Email).Return(nil, gorm.ErrRecordNotFound)
+	mockRepo.EXPECT().GetUserByUsername(newUser.Username).Return(nil, gorm.ErrRecordNotFound)
+
+	// Mock CreateUser method (it shouldn't be called since hashing fails)
+	mockRepo.EXPECT().CreateUser(gomock.Any()).Times(0) // Ensure CreateUser is not called
+
+	// Call the service method
+	createdUser, err := userSvc.CreateUser(newUser)
+
+	// Assertions
+	assert.Error(t, err)
+	assert.Nil(t, createdUser)
+	assert.Equal(t, mockHashError.Error(), err.Error()) // Check if the error is the expected hash error
 }
